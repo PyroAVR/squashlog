@@ -1,19 +1,9 @@
 #pragma once
+
+#include "utils.h"
+
 #include <stdint.h>
 #include <stddef.h>
-
-#define _PASTE(x, y) x##y
-#define PASTE(x, y) _PASTE(x, y)
-
-#if defined(__GNUC__) || defined(__clang__)
-#define SECTION(name) __attribute__((section(name)))
-#elif defined(_MSC_VER)
-#define SECTION(name) #pragma section(name, read)
-#elif defined (__CCRL__)
-#define SECTION(name) #pragma section const name
-#else
-#error "Unknown compiler type in " __FILE__ "."
-#endif
 
 // Place the indices of the fmtstrs in their own section, for extraction during
 // decoding.
@@ -38,7 +28,11 @@ SECTION(OS_LOG_OFFSETS_SECTION) const char *_os_log_fmtstrs_start;
 
 // since the offset value is an immediate / macro pasted value, even a stripped
 // binary will have the correct offsets.
-#define OS_LOG_FMT_NAME(str, out_id) {static const char *PASTE(_OS_LOG_, __LINE__) SECTION(OS_LOG_OFFSETS_SECTION) = str; out_id = (uintptr_t)(&PASTE(_OS_LOG_, __LINE__) - &_os_log_fmtstrs_start);}
+#define OS_LOG_FMT_NAME(str, out_id) {\
+    static const char \
+    *PASTE(_OS_LOG_, __LINE__) SECTION(OS_LOG_OFFSETS_SECTION) = str;\
+    out_id = (uintptr_t)(&PASTE(_OS_LOG_, __LINE__) - &_os_log_fmtstrs_start);\
+}
 
 #define os_log(fmt, ...) {\
     int offset;\

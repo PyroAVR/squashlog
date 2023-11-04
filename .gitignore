@@ -7,3 +7,4 @@ build/*
 *.abs
 *.exe
 *.dll
+*.bin

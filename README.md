@@ -54,3 +54,29 @@ TODO
 
 ## Decoding
 TODO
+
+## Extracting the binary format information
+
+### From ELF format (GCC, LLVM, modern versions of CC-RL & IAR EW)
+In general `objdump` and `objcopy` are the tools of choice for this task, though
+their equivalents in proprietary toolchains may be needed in certain
+environments.
+
+Modern versions of CC-RL appear to be a thinly-veiled LLVM toolchain and they
+also output ELF, just with the ".abs" extension. IAR `xlink` produces ELF,
+older versions of `ilink` do not, but IAR may be able to provide a conversion
+utility.
+
+### From COFF format (MSVC)
+TODO
+
+### From Mach-O format (Apple-branded LLVM & GCC)
+TODO
+
+### From Alien Computers
+If, somehow, you find yourself using this utility on a system which does not
+support ELF, COFF, or Mach-O... please email the developer.
+The easiest way to extract the binary format information will be to produce a
+modified version of the firmware / application binary which prints these tables
+to a file or a serial port, and then capture the result with non-alien computer.
+The tables can then be loaded directly by the decoder.

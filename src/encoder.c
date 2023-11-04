@@ -32,12 +32,12 @@ int os_log_pack_idx(uint64_t value, char *buffer) {
     }
     else if((value & 0xFFULL) == value) {
         size = 2;
-        buffer[0] = 0xCC; // 8-bit int format
+        buffer[0] = (char)0xCC; // 8-bit int format
         buffer[1] = value & 0xFF;
     }
     else if((value & 0xFFFFULL) == value) {
         size = 3;
-        buffer[0] = 0xCD; // 16-bit int format
+        buffer[0] = (char)0xCD; // 16-bit int format
         buffer[1] = value & 0xFF;
         buffer[2] = (value & (0xFF << 8) >> 8);
     }
