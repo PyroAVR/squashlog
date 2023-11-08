@@ -23,7 +23,7 @@ char *with_fmts = "this is a substring containing %s format %i specifiers";
 // context is just a pointer into the fmt string
 typedef char* os_log_ctx_t;
 
-int os_log_pack_idx(uint64_t value, char *buffer) {
+int os_log_pack_idx(uintmax_t value, char *buffer) {
     int size = 9; // worst case result is 9 bytes.
     if((value & 0x7FULL) == value) {
         // value < 127
@@ -93,7 +93,9 @@ int _os_log_snprintf(char *buffer, size_t size, int offset, char *fmt, ...) {
                 // exit early, no space in buffer
                 goto done;
             }
-            // TODO this might need to be platform-specific.
+            // NOTE this might need to be platform-specific.
+            // in theory the standard says that variadic arguments always
+            // receive a promoted copy, so this switch *should* work anywhere.
             switch(bytes) {
                 case sizeof(char):
                 case sizeof(short int):

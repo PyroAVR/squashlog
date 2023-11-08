@@ -57,7 +57,7 @@ SECTION(OS_LOG_OFFSETS_SECTION) const char *_os_log_fmtstrs_start;
  * buffer: buffer to pack into. Size should be 9 bytes.
  * returns: #(8-bit bytes) of msgpack-encoded type and integer value, 0 on error
  */
-int os_log_pack_idx(uint64_t value, char *buffer);
+int os_log_pack_idx(uintmax_t value, char *buffer);
 
 /**
  * Like snprintf, but outputs an os_log string.
