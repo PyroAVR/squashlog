@@ -23,6 +23,11 @@
 
 #define u32 BINFMT_U32_TYPE
 
+// Needed for formatter & decoder allocation size calculations
+#if !defined BINFMT_MAX_TYPE
+#define BINFMT_MAX_TYPE long double
+#endif
+
 /**
  * All fields here are 32-bit - won't be included in the actual firmware binary,
  * size is not a concern.
@@ -35,8 +40,8 @@ typedef struct {
     u32 byte_order_32;
     u32 byte_order_16;
     u32 char_bit;
-    u32 double_size; // %f, g
-    u32 long_double_size; // %lf, lg
+    u32 double_size;
+    u32 long_double_size;
     u32 float_size;
     u32 size_t_size;
     u32 wint_t_size;

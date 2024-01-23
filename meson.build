@@ -8,8 +8,10 @@ host_cc = meson.get_compiler('c', native: false)
 includes = include_directories('include')
 
 encoder_source_list = [
-    'src' / 'printf_format.c',
+    'src' / 'formatters' / 'printf.c',
+    'src' / 'formatters' / 'packer.c',
     'src' / 'encoder.c',
+    'src' / 'string_utils.c',
 ]
 
 # TODO not really sure if this is a good way to allow inclusion as a subproject.

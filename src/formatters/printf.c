@@ -1,8 +1,49 @@
+#include "formatters/printf.h"
+
+#include "format_internal.h"
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <wchar.h>
+
+static char *find_first_fmt(char *spec, printf_ctx_t *ctx);
+
+static int fmt_func(char *spec, printf_ctx_t *ctx);
+
+
+fmt_ctx_t *printf_family_init(fmt_ctx_t *target, printf_ctx_t *ctx) {
+    target->fmt_func = (fmt_next_size*)fmt_func;
+    target->storage = (void*)ctx;
+    target->strcpy_offset = 0;
+    return target;
+}
+
+int _sprintf(fmt_ctx_t *ctx, char *restrict str, int idx, const char *restrict fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int offset = sq_pack_idx(idx, str);
+    int packed_bytes = sq_pack_r((void*)ctx, (void*)fmt, str + offset, 9999, ap);
+    return packed_bytes;
+}
+
+enum {
+    BYTE_MOD_FLAG = 1 << 0,
+    SHORT_MOD_FLAG = 1 << 1,
+    LONG_MOD_FLAG = 1 << 2,
+    LONG_LONG_MOD_FLAG = 1 << 3,
+    LONG_DOUBLE_MOD_FLAG = 1 << 4,
+    INTMAX_MOD_FLAG = 1 << 5,
+    SIZE_T_MOD_FLAG = 1 << 6,
+    PTRDIFF_T_MOD_FLAG = 1 << 7,
+    INT_CONV_FLAG = 1 << 8,
+    DOUBLE_CONV_FLAG = 1 << 9,
+    CHAR_CONV_FLAG = 1 << 10,
+    STR_CONV_FLAG = 1 << 11,
+    PTR_CONV_FLAG = 1 << 12
+};
+
 /**
  * Consume a printf-style format specifier.  This function takes one
  * %[flag][width][.][precision][length mod]<conversion> at the start of a format
@@ -13,30 +54,27 @@
  * fmt: string starting with a format specifier in printf format, '%...'
  * skip: optional. If non-null, pointed value will be set to #chars in fmt str.
  */
-int printf_fmt_bytes(char *fmt, int *skip) {
-    enum {
-        BYTE_MOD_FLAG = 1 << 0,
-        SHORT_MOD_FLAG = 1 << 1,
-        LONG_MOD_FLAG = 1 << 2,
-        LONG_LONG_MOD_FLAG = 1 << 3,
-        LONG_DOUBLE_MOD_FLAG = 1 << 4,
-        INTMAX_MOD_FLAG = 1 << 5,
-        SIZE_T_MOD_FLAG = 1 << 6,
-        PTRDIFF_T_MOD_FLAG = 1 << 7,
-        INT_CONV_FLAG = 1 << 8,
-        DOUBLE_CONV_FLAG = 1 << 9,
-        CHAR_CONV_FLAG = 1 << 10,
-        STR_CONV_FLAG = 1 << 11,
-        PTR_CONV_FLAG = 1 << 12
-    };
+int printf_fmt_r(char *fmt_spec, printf_ctx_t *ctx) {
     int bytes = 0;
     int index = 0;
     bool argwidth_flag = false;
     int flags = 0;
+    char *fmt = NULL;
+
+    // (re)-initialize parsing context if necessary
+    if(fmt_spec != NULL) {
+        ctx->format_str = fmt_spec;
+        ctx->index = 0;
+    }
+
+    index = ctx->index;
+    fmt = ctx->format_str;
+
     // consume % sign and specifiers containing only %%, %%%, etc.
     while(fmt[index] && fmt[index] == '%') index++;
-    // odd numbered counts of % have a posfix which may be a valid fmtstr
-    if(!(index & 1)) goto done;
+    // even-length sequences of "%" are just escaped "%" - ignore.
+    // if there are no bytes left in the format string, exit.
+    if(!(index & 1) || (index == 0)) goto done;
     // consume flag, if any
     switch(fmt[index]) {
         case '#':
@@ -208,8 +246,27 @@ int printf_fmt_bytes(char *fmt, int *skip) {
         bytes = sizeof(void *);
     }
 done:
-    if(skip != NULL) {
-        *skip = index;
-    }
+    ctx->index = index;
     return bytes;
+}
+
+static char *find_first_fmt(char *spec, printf_ctx_t *ctx) {
+    char *fmt;
+    int index;
+    // (re)-initialize parsing context if necessary
+    if(spec != NULL) {
+        ctx->format_str = spec;
+        ctx->index = 0;
+    }
+
+    index = ctx->index;
+    fmt = ctx->format_str;
+    while(fmt[index] != '%' && fmt[index] != 0) index++;
+    ctx->index = index;
+    return (fmt[index]) ? fmt + index : NULL;
+}
+
+static int fmt_func(char *spec, printf_ctx_t *ctx) {
+    find_first_fmt(spec, ctx);
+    return printf_fmt_r(NULL, ctx);
 }
