@@ -24,7 +24,7 @@
 #endif
 
 // create zeroth entry in the format string section, denoting the beginning
-SECTION(OS_LOG_OFFSETS_SECTION) const char *_os_log_fmtstrs_start;
+extern SECTION(OS_LOG_OFFSETS_SECTION) const char *_os_log_fmtstrs_start;
 
 // since the offset value is an immediate / macro pasted value, even a stripped
 // binary will have the correct offsets.
