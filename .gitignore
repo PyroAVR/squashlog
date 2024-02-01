@@ -8,3 +8,6 @@ build/*
 *.exe
 *.dll
 *.bin
+
+.ccls-cache/
+.cache/
