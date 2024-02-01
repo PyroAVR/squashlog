@@ -15,7 +15,7 @@
 /**
  * Pack integer-typed index of format identifier into msgpack int-family format.
  */
-size_t sq_pack_idx(uintmax_t value, char *buffer);
+size_t sq_pack_idx(fmt_ctx_t *ctx, uintmax_t value);
 
 /**
  * Pack generically typed data into a message buffer
@@ -23,5 +23,6 @@ size_t sq_pack_idx(uintmax_t value, char *buffer);
  * Note: this function is reentrant and calls a reentrant function:
  * ctx->fmt_func. If the buffer is full (return value == size), this function
  * needs to be called again after flushing the buffer, but with spec = NULL.
+ * returns: number of args in ap successfully packed.
  */
-int sq_pack_r(fmt_ctx_t *ctx, void *spec, char *buf, size_t size, va_list ap);
+int sq_pack_r(fmt_ctx_t *ctx, void *spec, va_list ap);

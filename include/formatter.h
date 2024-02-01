@@ -14,8 +14,8 @@
  * storage and shall be invalidated / reset by the format function when a
  * non-null argument is provided to spec.
  *
- * spec: implementation-defined data format specification.
  * ctx: implementation-defined context variable.
+ * spec: implementation-defined data format specification.
  * returns: number of bytes which shall be copied from the next argument to the
  *          format function.
  *
@@ -24,13 +24,10 @@
  *          -1: value to pack is a null-terminated character string
  *          -2: value to pack is a null-terminated wide-character string
  */
-typedef int (fmt_next_size)(void *spec, void *ctx);
+typedef int (arg_size_f)(void *ctx, void *spec);
 
-// this absorbs at most 20 bytes... if that's too tight, you probably shouldn't
-// be using printf debugging... just saying.
-// NOTE: storage needs to point to formatter-implementation-specific data.
 typedef struct {
-    fmt_next_size *fmt_func;
-    void *storage;
-    size_t strcpy_offset;
+    arg_size_f *next_arg_bytes;
+    void *buffer; // buffer implementation
+    void *format_ctx; // format string implementation context argument
 } fmt_ctx_t;

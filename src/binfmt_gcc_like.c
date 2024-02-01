@@ -1,4 +1,4 @@
-#include "binfmt.h"
+#include "platform/binformat.h"
 
 #include "utils.h"
 

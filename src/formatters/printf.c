@@ -8,23 +8,25 @@
 #include <stdint.h>
 #include <wchar.h>
 
-static char *find_first_fmt(char *spec, printf_ctx_t *ctx);
+static char *find_first_fmt(printf_ctx_t *ctx, char *spec);
 
-static int fmt_func(char *spec, printf_ctx_t *ctx);
+static int fmt_func(printf_ctx_t *ctx, char *spec);
+
+static int printf_fmt_r(printf_ctx_t *ctx, char *fmt_spec);
 
 
 fmt_ctx_t *printf_family_init(fmt_ctx_t *target, printf_ctx_t *ctx) {
-    target->fmt_func = (fmt_next_size*)fmt_func;
-    target->storage = (void*)ctx;
-    target->strcpy_offset = 0;
+    target->next_arg_bytes = (arg_size_f*)fmt_func;
+    target->format_ctx = (void*)ctx;
     return target;
 }
 
 int _sprintf(fmt_ctx_t *ctx, char *restrict str, int idx, const char *restrict fmt, ...) {
     va_list ap;
+    int packed_bytes = 0;
     va_start(ap, fmt);
-    int offset = sq_pack_idx(idx, str);
-    int packed_bytes = sq_pack_r((void*)ctx, (void*)fmt, str + offset, 9999, ap);
+    packed_bytes = sq_pack_idx(ctx, idx);
+    packed_bytes += sq_pack_r((void*)ctx, (void*)fmt, ap);
     return packed_bytes;
 }
 
@@ -54,7 +56,7 @@ enum {
  * fmt: string starting with a format specifier in printf format, '%...'
  * skip: optional. If non-null, pointed value will be set to #chars in fmt str.
  */
-int printf_fmt_r(char *fmt_spec, printf_ctx_t *ctx) {
+static int printf_fmt_r(printf_ctx_t *ctx, char *fmt_spec) {
     int bytes = 0;
     int index = 0;
     bool argwidth_flag = false;
@@ -250,7 +252,7 @@ done:
     return bytes;
 }
 
-static char *find_first_fmt(char *spec, printf_ctx_t *ctx) {
+static char *find_first_fmt(printf_ctx_t *ctx, char *spec) {
     char *fmt;
     int index;
     // (re)-initialize parsing context if necessary
@@ -266,7 +268,7 @@ static char *find_first_fmt(char *spec, printf_ctx_t *ctx) {
     return (fmt[index]) ? fmt + index : NULL;
 }
 
-static int fmt_func(char *spec, printf_ctx_t *ctx) {
-    find_first_fmt(spec, ctx);
-    return printf_fmt_r(NULL, ctx);
+static int fmt_func(printf_ctx_t *ctx, char *spec) {
+    find_first_fmt(ctx, spec);
+    return printf_fmt_r(ctx, NULL);
 }

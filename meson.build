@@ -12,6 +12,7 @@ encoder_source_list = [
     'src' / 'formatters' / 'packer.c',
     'src' / 'encoder.c',
     'src' / 'string_utils.c',
+    'src' / 'unix_bytestream.c',
 ]
 
 # TODO not really sure if this is a good way to allow inclusion as a subproject.
