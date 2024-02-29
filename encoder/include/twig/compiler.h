@@ -45,6 +45,3 @@ extern SECTION(TWIG_OFFSETS_SECTION) const char *_twig_fmtstrs_start;
     TWIG_MKSTR(fmt, offset);\
     printf("%i: " fmt, offset, __VA_ARGS__);\
 }
-
-#undef PASTE
-#undef _PASTE
