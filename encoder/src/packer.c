@@ -102,12 +102,11 @@ int vpackargs(packer_ctx_t *ctx, void *spec, va_list ap) {
                 break;
             }
 
-            bytes_avail -= stream_write(ctx->stream, &arg.as_ptr[0], bytes_needed);
+            bytes_avail -= stream_write(ctx->stream, (char*)&arg.as_ptr[0], bytes_needed);
         }
 
         args_processed++;
         bytes_needed = ctx->next_arg_bytes(ctx->formatter, NULL);
     }
-    va_end(ap);
     return args_processed;
 }
