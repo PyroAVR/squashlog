@@ -1,1 +1,2 @@
 option('binfmt_impl', type: 'string', description: 'Binary format implementation, overrides compiler autodetection')
+option('build_demos', type: 'boolean', description: 'build demos', value: false)

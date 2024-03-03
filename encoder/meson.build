@@ -17,4 +17,6 @@ subdir('src' / 'toolchain')
 subdir('src' / 'streams')
 subdir('src' / 'formatters')
 
-subdir('examples')
+if get_option('build_demos')
+  subdir('demos')
+endif
