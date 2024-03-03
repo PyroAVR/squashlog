@@ -16,8 +16,9 @@ else
     error('Compiler type detection failed and no custom implementation provided via binfmt_impl')
 endif
 
-lib_bfmt = library('bfmt',
+lib_bfmt = static_library('bfmt',
   files(sources),
   native: false,
-  include_directories: includes
+  include_directories: includes,
+  build_by_default: true,
 )

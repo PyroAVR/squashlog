@@ -7,18 +7,14 @@ host_cc = meson.get_compiler('c', native: false)
 
 includes = include_directories('include')
 
-packer_sources = []
-subdir('src' / 'toolchain')
-subdir('src' / 'streams')
-subdir('src' / 'formatters')
-
-packer_sources += [files('src' / 'packer.c')]
-
-lib_packer = library('packer',
-  packer_sources,
+lib_packer = static_library('packer',
+  files('src' / 'packer.c'),
   include_directories: includes,
   install: false,
   native: false
 )
+subdir('src' / 'toolchain')
+subdir('src' / 'streams')
+subdir('src' / 'formatters')
 
 subdir('examples')
