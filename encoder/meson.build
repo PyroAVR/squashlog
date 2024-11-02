@@ -1,15 +1,8 @@
-project('twig encoder', 'c',
-  version : '0.1',
-  default_options : ['warning_level=3']
-)
-
-host_cc = meson.get_compiler('c', native: false)
-
-includes = include_directories('include')
+encoder_includes = include_directories('include')
 
 lib_packer = static_library('packer',
   files('src' / 'packer.c'),
-  include_directories: includes,
+  include_directories: [encoder_includes, common_includes],
   install: false,
   native: false
 )

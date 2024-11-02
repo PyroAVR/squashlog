@@ -1,13 +1,16 @@
 #include <twig/formatters/printf.h>
 
-#include <twig/packer.h>
+#include <twig/bfmt.h>
 
 #include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#if defined(TWIG_HOST_HAS_WCHAR_H)
 #include <wchar.h>
+#endif
 
+extern const bfmt_t binfmt_defs;
 
 /**
  * Read a string until a '%' is found.
@@ -28,40 +31,38 @@ static const char *printf_skip_non_spec(const char *spec);
  * spec: string *starting with* a format specifier in printf format, '%...'
  * skip: pointer to integer storing bytes to skip in spec. output parameter.
  */
-static int printf_spec_bytes(const char *spec, size_t *skip);
+
+#if defined(TWIG_BUILD_TARGETS_HOST)
+int printf_spec_bytes(const int flags);
+#else
+int printf_spec_bytes(const int flags, bfmt_t *host_bfmt);
+#endif
+
+static int printf_spec_bytes_flags(const char *spec, size_t *skip);
 
 
 int printf_next_arg_bytes(const char **ctx, const char *spec) {
-    int bytes;
+    int bytes = 0;
     size_t skip = 0;
+    int flags = 0;
     // (re)-initialize parsing context if necessary
     if(spec != NULL) {
         *ctx = spec;
     }
+#if defined(TWIG_BUILD_TARGETS_HOST)
     *ctx = printf_skip_non_spec(*ctx);
-    bytes = printf_spec_bytes(*ctx, &skip);
+    flags = printf_spec_bytes_flags(*ctx, &skip);
+    bytes = printf_spec_bytes(flags);
+#else
+    ctx->spec = printf_skip_non_spec(ctx->spec);
+    flags = printf_spec_bytes_flags(ctx->spec, &skip);
+    bytes = printf_spec_bytes(flags, ctx->host_bfmt);
+#endif
     *ctx = *ctx + skip;
     return bytes;
 }
 
-enum {
-    BYTE_MOD_FLAG = 1 << 0,
-    SHORT_MOD_FLAG = 1 << 1,
-    LONG_MOD_FLAG = 1 << 2,
-    LONG_LONG_MOD_FLAG = 1 << 3,
-    LONG_DOUBLE_MOD_FLAG = 1 << 4,
-    INTMAX_MOD_FLAG = 1 << 5,
-    SIZE_T_MOD_FLAG = 1 << 6,
-    PTRDIFF_T_MOD_FLAG = 1 << 7,
-    INT_CONV_FLAG = 1 << 8,
-    DOUBLE_CONV_FLAG = 1 << 9,
-    CHAR_CONV_FLAG = 1 << 10,
-    STR_CONV_FLAG = 1 << 11,
-    PTR_CONV_FLAG = 1 << 12
-};
-
-static int printf_spec_bytes(const char *spec, size_t *skip) {
-    int bytes = 0;
+static int printf_spec_bytes_flags(const char *spec, size_t *skip) {
     int index = 0;
     bool argwidth_flag = false;
     int flags = 0;
@@ -192,58 +193,11 @@ static int printf_spec_bytes(const char *spec, size_t *skip) {
         break;
 
     }
-
-    // now, interpret all the flags to determine how many bytes are consumed by
-    // this argument
-    if(flags & LONG_DOUBLE_MOD_FLAG) {
-        bytes = sizeof(long double);
-    }
-    else if(flags & INTMAX_MOD_FLAG) {
-        bytes = sizeof(intmax_t);
-    }
-    if(flags & SIZE_T_MOD_FLAG) {
-        bytes = sizeof(size_t);
-    }
-    if(flags & PTRDIFF_T_MOD_FLAG) {
-        bytes = sizeof(ptrdiff_t);
-    }
-    if(flags & INT_CONV_FLAG) {
-        if(flags & BYTE_MOD_FLAG) {
-            bytes = sizeof(char);
-        }
-        else if(flags & SHORT_MOD_FLAG) {
-            bytes = sizeof(short);
-        }
-        else if(flags & LONG_MOD_FLAG) {
-            bytes = sizeof(long);
-        }
-        else if(flags & LONG_LONG_MOD_FLAG) {
-            bytes = sizeof(long long);
-        }
-        else {
-            bytes = sizeof(int);
-        }
-    }
-    if(flags & DOUBLE_CONV_FLAG) {
-        bytes = sizeof(double);
-    }
-    if(flags & CHAR_CONV_FLAG) {
-        bytes = (flags & LONG_MOD_FLAG) ? sizeof(wchar_t):sizeof(char);
-    }
-    if(flags & STR_CONV_FLAG) {
-        // have to compute the length of the string pointed to here.
-        // because we don't have access to the argument, we return -1 here to
-        // indicate use of strlen(), and -2 to indicate use of wcslen()
-        bytes = (flags & LONG_MOD_FLAG) ? -2:-1;
-    }
-    if(flags & PTR_CONV_FLAG) {
-        // I don't know of any platforms where the size of pointers to different
-        // types changes, but if there are any, this will break.
-        bytes = sizeof(void *);
-    }
 done:
-    *skip = index;
-    return bytes;
+    if(skip != NULL) {
+        *skip = index;
+    }
+    return flags;
 }
 
 static const char *printf_skip_non_spec(const char *spec) {

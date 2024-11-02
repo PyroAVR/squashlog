@@ -48,5 +48,8 @@ typedef struct {
     u32 pointer_size;
     u32 ptrdiff_size;
     u32 long_size;
+    u32 long_long_size;
+    u32 wchar_t_size;
     u32 int_size;
+    u32 intmax_size;
 } bfmt_t;

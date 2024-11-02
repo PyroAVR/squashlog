@@ -7,7 +7,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
+#if defined(TWIG_HOST_HAS_WCHAR_H)
 #include <wchar.h>
+#endif
 #include <string.h>
 
 #define abs(a) (size_t)(((a) > 0) ? (a):-(a))
@@ -56,7 +58,7 @@ int vpackargs(packer_ctx_t *ctx, void *spec, va_list ap) {
     // further refinement of this value follows
     int bytes_needed = ctx->next_arg_bytes(ctx->formatter, spec);
     // copy of va_arg value
-    box_t arg;
+    union box arg;
 
     // while there are remaining args to format
     while(bytes_needed != 0) {
@@ -68,6 +70,7 @@ int vpackargs(packer_ctx_t *ctx, void *spec, va_list ap) {
                 bytes_avail -= stream_write(ctx->stream, arg.as_ptr[0], bytes_needed);
             }
         }
+#if defined(TWIG_HOST_HAS_WCHAR_H)
         else if(bytes_needed == -2) {
             // w i d e  string specifier
             arg.as_ptr[0] = va_arg(ap, char *);
@@ -76,6 +79,7 @@ int vpackargs(packer_ctx_t *ctx, void *spec, va_list ap) {
                 bytes_avail -= stream_write(ctx->stream, arg.as_ptr[0], bytes_needed);
             }
         }
+#endif
         else if((size_t)bytes_needed < bytes_avail) {
             // this handles the annoyance of integer type promotion, which is
             // required in order to pass an argument of the right size to

@@ -18,7 +18,7 @@
 #endif
 
 // create zeroth entry in the format string section, denoting the beginning
-extern SECTION(TWIG_OFFSETS_SECTION) const char *_twig_fmtstrs_start;
+extern SECTION(TWIG_OFFSETS_SECTION) const char *_twig_stridx_start;
 
 #define _PASTE(x, y) x##y
 #define PASTE(x, y) _PASTE(x, y)
@@ -29,6 +29,10 @@ extern SECTION(TWIG_OFFSETS_SECTION) const char *_twig_fmtstrs_start;
  *  - has a pointer within TWIG_OFFSETS_SECTION pointing to its first character
  *  - has no effect on the containing scope.
  *
+ *  the addressof on &PASTE and &_twig_stridx_start are necessary to emit out_id
+ *  since the value of the strings is irrelevant and possibly invalid, leading
+ *  to an invalid index (eg. -1) during pack_idx
+ *
  * Place the index of the offset within TWIG_OFFSETS_SECTION in out_id
  */
 #define TWIG_MKSTR(str, out_id) {\
@@ -36,7 +40,7 @@ extern SECTION(TWIG_OFFSETS_SECTION) const char *_twig_fmtstrs_start;
     static const char _[] = str;\
     SECTION(TWIG_OFFSETS_SECTION)\
     static const char *PASTE(_TWIG_, __LINE__) = _;\
-    out_id = (uintptr_t)(&PASTE(_TWIG_, __LINE__) - &_twig_fmtstrs_start);\
+    out_id = (uintptr_t)(&PASTE(_TWIG_, __LINE__) - &_twig_stridx_start);\
 }
 
 // example usage of MKSTR TODO delete

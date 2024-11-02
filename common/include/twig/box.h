@@ -6,9 +6,10 @@
 
 /**
  * A universal box. If it fits, it ships.
- * This is a union of all the types understood by squashlog
+ * This is a union of all the types understood by twig.
+ * It makes the packer code more readable than using a chain of type casts.
  */
-typedef union {
+union box {
         char as_char[sizeof(BFMT_MAX_TYPE) / sizeof(char)];
         int as_int[sizeof(BFMT_MAX_TYPE) / sizeof(int)];
 #if defined(BFMT_HAVE_STD8)
@@ -33,4 +34,4 @@ typedef union {
         double as_double[sizeof(BFMT_MAX_TYPE) / sizeof(double)];
         long double as_long_double[sizeof(BFMT_MAX_TYPE) / sizeof(long double)];
         BFMT_MAX_TYPE as_max_size_type;
-} box_t;
+};
