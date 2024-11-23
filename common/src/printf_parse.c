@@ -10,59 +10,7 @@
 #include <wchar.h>
 #endif
 
-extern const bfmt_t binfmt_defs;
-
-/**
- * Read a string until a '%' is found.
- * Initializes the string context in ctx if spec is non-NULL.
- * Pass NULL for spec to continue parsing the most recent spec string.
- * spec: format-spec string in printf style
- * returns: pointer to first '%' in spec, or NULL if not found.
- */
-static const char *printf_skip_non_spec(const char *spec);
-
-/**
- * Consume a printf-style format specifier.  This function takes one
- * %[flag][width][.][precision][length mod]<conversion> at the start of a format
- * string and returns the number of bytes consumed by that argument before
- * formatting, that is, in binary form, not as text.
- *
- * See man 3 printf for information about these specifiers.
- * spec: string *starting with* a format specifier in printf format, '%...'
- * skip: pointer to integer storing bytes to skip in spec. output parameter.
- */
-
-#if defined(TWIG_BUILD_TARGETS_HOST)
-int printf_spec_bytes(const int flags);
-#else
-int printf_spec_bytes(const int flags, bfmt_t *host_bfmt);
-#endif
-
-static int printf_spec_bytes_flags(const char *spec, size_t *skip);
-
-
-int printf_next_arg_bytes(const char **ctx, const char *spec) {
-    int bytes = 0;
-    size_t skip = 0;
-    int flags = 0;
-    // (re)-initialize parsing context if necessary
-    if(spec != NULL) {
-        *ctx = spec;
-    }
-#if defined(TWIG_BUILD_TARGETS_HOST)
-    *ctx = printf_skip_non_spec(*ctx);
-    flags = printf_spec_bytes_flags(*ctx, &skip);
-    bytes = printf_spec_bytes(flags);
-#else
-    ctx->spec = printf_skip_non_spec(ctx->spec);
-    flags = printf_spec_bytes_flags(ctx->spec, &skip);
-    bytes = printf_spec_bytes(flags, ctx->host_bfmt);
-#endif
-    *ctx = *ctx + skip;
-    return bytes;
-}
-
-static int printf_spec_bytes_flags(const char *spec, size_t *skip) {
+int printf_spec_flags(const char *spec, size_t *skip) {
     int index = 0;
     bool argwidth_flag = false;
     int flags = 0;
@@ -200,7 +148,7 @@ done:
     return flags;
 }
 
-static const char *printf_skip_non_spec(const char *spec) {
+const char *printf_skip_non_spec(const char *spec) {
     while(*spec != '%' && *spec != 0) spec++;
     return spec;
 }

@@ -1,16 +1,20 @@
 #pragma once
 
-/**
- * Parse spec, returning the number of bytes required to hold the next format
- * argument within spec. Initializes the string context in ctx if spec is
- * non-NULL. Pass NULL for spec to continue parsing the most recent spec string.
- * spec: format-spec string in printf style
- * returns: number of bytes required for next arg.
- */
-int printf_next_arg_bytes(const char **ctx, const char *spec);
+#include <stddef.h>
 
-// TODO internal, but putting this here for now because I don't want to make
-// a private header shared between encoder and decoder
+/**
+ * Read a string until a '%' is found.
+ * Initializes the string context in ctx if spec is non-NULL.
+ * Pass NULL for spec to continue parsing the most recent spec string.
+ * spec: format-spec string in printf style
+ * returns: pointer to first '%' in spec, or NULL if not found.
+ */
+const char *printf_skip_non_spec(const char *spec);
+
+/**
+ * Symbols declaring the meaning of each flag in the printf_spec_flags
+ * return value
+ */
 enum {
     BYTE_MOD_FLAG = 1 << 0,
     SHORT_MOD_FLAG = 1 << 1,
@@ -27,3 +31,17 @@ enum {
     PTR_CONV_FLAG = 1 << 12
 };
 
+/**
+ * Get a set of flags from a printf-style format specifier which correlate to
+ * the number of bytes needed to represent the coded type on any platform.
+ * The return value of this function may be used with printf_spec_bytes to
+ * get the actual number of bytes.
+ * Example:
+ *     On x86_64, %ld correlates to long int and consumes 8 bytes.
+ *     On armv7, %ld consumes 4 bytes.
+ *     This function returns 0x12 (integer, long modifier) on both platforms.
+ * spec: format string starting with %
+ * skip: out, length in characters of spec consumed by parsing
+ * return value: flags, for use with printf_spec_bytes
+ */
+int printf_spec_flags(const char *spec, size_t *skip);

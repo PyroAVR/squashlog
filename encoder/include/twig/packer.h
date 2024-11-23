@@ -38,4 +38,7 @@ typedef struct {
 
 size_t pack_idx(packer_ctx_t *ctx, uintmax_t value);
 
+/**
+ * return value: number of arguments processed without blocking
+ */
 int vpackargs(packer_ctx_t *ctx, void *spec, va_list ap);
