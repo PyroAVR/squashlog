@@ -6,7 +6,7 @@
 
 /**
  * A universal box. If it fits, it ships.
- * This is a union of all the types understood by twig.
+ * This is a union of all the scalar types understood by twig.
  * It makes the packer code more readable than using a chain of type casts.
  */
 union box {

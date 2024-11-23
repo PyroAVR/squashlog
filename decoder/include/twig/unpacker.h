@@ -12,3 +12,4 @@ struct unpacker_ctx {
 };
 
 struct tagbox unpackarg(struct unpacker_ctx *ctx, void *spec, char *buf, size_t len);
+uintmax_t unpack_idx(bfmt_t *bfmt, char *buf);
