@@ -2,6 +2,9 @@
 #include <epoll_app.h>
 #include <twig/bfmt.h>
 #include <twig/unpacker.h>
+#include <twig/tagbox.h>
+
+#include <alibc/containers/array.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -15,28 +18,55 @@ void usage(const char *name) {
     printf("Usage: %s <strings file> <indices file> <binfmt file> <data stream file>\n", name);
 }
 
-struct app_context {
+struct app_ctx {
     bfmt_t host_bfmt;
-    // XXX neither of these are owned by this struct in the current impl.
-    char *idxtab;
-    char *strtab;
+    array_t *offset_map; // map (index -> strtab offset)
+    // XXX not owned by this struct in the current impl.
+    char **strtab;
+    struct unpacker_ctx *unpackctx;
 };
 
+struct app_ctx *app_ctx_init(struct app_ctx *ctx, bfmt_t *host_bfmt, struct unpacker_ctx *unpackerctx, char **strtab) {
+    memcpy(&ctx->host_bfmt, host_bfmt, sizeof(bfmt_t));
+    
+    ctx->offset_map = create_array(1, host_bfmt->pointer_size);
+    if(!ctx->offset_map) {
+        return NULL;
+    }
+    ctx->unpackctx = unpackerctx;
+    ctx->strtab = strtab;
+    return ctx;
+}
 
-void read_handler(struct app_context *ctx, int fd) {
+
+void read_handler(struct app_ctx *ctx, int fd) {
     printf("read is ready on fd: %i\n", fd);
     ssize_t read_size = 0;
     char buf[256];
     bool new_fmt = true;
     uintmax_t string_idx = 0;
+    size_t skip = 0;
     while((read_size = read(fd, buf, 256)) > 0) {
-        buf[read_size] = 0;
+        buf[read_size] = 0; // append null-terminator
         if(new_fmt) {
-            new_fmt = false;
+            // new_fmt = false;
             // get index of this message from first byte & ctx
-            string_idx = unpack_idx(&ctx->host_bfmt, buf);
+            string_idx = unpack_idx(&ctx->host_bfmt, buf, &skip);
             printf("index of current message is: %lu\n", string_idx);
         }
+
+        struct tagbox next_arg = {.tag = NO_DATA};
+        uint32_t *offset = (uint32_t*)array_fetch(ctx->offset_map, string_idx);
+        if(!offset) {
+            fprintf(stderr, "Index %i was not found in the string table. Stale input or stream de-sync likely.\n", string_idx);
+        }
+        else {
+            // TODO make a nice macro / func for getting an index into strtab
+            // also make one to do the whole lookup, eg. char *fmt = lookup_idx(ctx, idx)
+            char *spec = (char*)ctx->strtab + *offset;
+            printf("\t%s\n", spec);
+        }
+        // while((next_arg = unpackgarg(ctx->unpackctx, NULL, buf
         // consume as many arguments as we have available bytes, printing them
         // if all arguments are consumed, new_fmt = true, else new_fmt = false
         // loop
@@ -65,6 +95,10 @@ int main(int argc, const char **argv) {
 
     bfmt_t *host_bfmt = (bfmt_t*)binfmt->linebuf;
 
+
+    struct app_ctx ctx;
+    app_ctx_init(&ctx, host_bfmt, NULL, (char**)(strings->linebuf));
+
     printf("host machine has sizeof(void *) = %i\n", host_bfmt->pointer_size);
 
     printf("host string table:\n");
@@ -83,13 +117,18 @@ int main(int argc, const char **argv) {
     unsigned int base = 0;
     for(unsigned int i = host_bfmt->pointer_size; i < indices->len; i += host_bfmt->pointer_size) {
         unsigned int strtab_pointer;
+        // NOTE u32 works for many platforms, but not guaranteed to be enough for x86.
         memcpy(&strtab_pointer, indices->linebuf + i, sizeof(BFMT_U32_TYPE));
         if(base == 0) {
             base = strtab_pointer;
         }
         strtab_pointer -= base;
-        printf("\toffset of next string: %04x\n", strtab_pointer);
-        printf("\t%i: %s\n", i - host_bfmt->pointer_size, strings->linebuf + strtab_pointer);
+        // printf("\toffset of next string: %04x\n", strtab_pointer);
+        // printf("\t%i: %s\n", i - host_bfmt->pointer_size, strings->linebuf + strtab_pointer);
+        if(ALC_ARRAY_SUCCESS != array_append(ctx.offset_map, (void*)strtab_pointer)) {
+            fprintf(stderr, "out of memory during strtab-offset table generation\n");
+            goto done_mem;
+        }
     }
 
     int streamfd = open(argv[4], O_RDONLY);
@@ -98,15 +137,10 @@ int main(int argc, const char **argv) {
         goto done;
     }
 
-    struct app_context ctx;
-    ctx.host_bfmt = *host_bfmt;
-    ctx.strtab = strings->linebuf;
-    ctx.idxtab = indices->linebuf;
-
     read_handler(&ctx, streamfd);
     // no epoll on regular files
 #if 0
-    struct app_context ctx;
+    struct app_ctx ctx;
     epoll_app_t *epoll = create_epoll_app(0, &ctx);
 
     int streamfd = open(argv[4], O_RDONLY);
@@ -130,6 +164,8 @@ done_nostream:
     destroy_epoll_app(epoll);
 #endif
 done:
+done_mem:
+    array_free(ctx.offset_map);
 done_nobinfmt:
     buf_free(binfmt);
 done_noindices:

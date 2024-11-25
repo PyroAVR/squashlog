@@ -9,6 +9,7 @@
  */
 struct tagbox {
     enum {
+        NO_DATA = 0,
         AS_CHAR,
         AS_INT,
         AS_S8,

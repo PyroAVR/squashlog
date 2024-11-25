@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-uintmax_t unpack_idx(bfmt_t *bfmt, char *buf) {
+uintmax_t unpack_idx(bfmt_t *bfmt, char *buf, size_t *skip) {
     // msgpack format w/o big-endian swapping
     uintmax_t r = 0;
     unsigned int size = 0;
@@ -20,6 +20,9 @@ uintmax_t unpack_idx(bfmt_t *bfmt, char *buf) {
         size = (unsigned int)buf[0] - 0xCBU;
     }
     memcpy(&r, buf + 1, size);
+    if(skip != NULL) {
+        *skip = size;
+    }
 
     switch(size) {
         case 0:
