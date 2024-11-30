@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-buf_t *buf_from_file(const char *restrict fname) {
-    buf_t *r = malloc(sizeof(buf_t));
+struct fbuf *buf_from_file(const char *restrict fname) {
+    struct fbuf *r = malloc(sizeof(struct fbuf));
     if(!r) return NULL;
 
     FILE *f = fopen(fname, "r");
@@ -26,26 +26,17 @@ buf_t *buf_from_file(const char *restrict fname) {
     return r;
 }
 
-buf_t *buf_from_string_ref(char *data, size_t len) {
-    buf_t *r = malloc(sizeof(buf_t));
-    if(!r) return NULL;
-    r->linebuf = (char*)data;
-    r->len = len;
-    r->owned = false;
-    return r;
-}
-
-buf_t *buf_from_string(char *data, size_t len) {
-    buf_t *r = malloc(sizeof(buf_t));
+struct fbuf *buf_from_string(char *data, size_t len, bool reference) {
+    struct fbuf *r = malloc(sizeof(struct fbuf));
     if(!r) return NULL;
     r->linebuf = data;
     r->len = len;
-    r->owned = true; // take responsibility for freeing the buf
+    r->owned = reference; // take responsibility for freeing the buf
     return r;
 }
 
-buf_t *buf_advanced(buf_t *buf, size_t count) {
-    buf_t *r = malloc(sizeof(buf_t));
+struct fbuf *buf_advanced(struct fbuf *buf, size_t count) {
+    struct fbuf *r = malloc(sizeof(struct fbuf));
     if(!r) return NULL;
     r->linebuf = buf->linebuf + count;
     r->len = buf->len - count;
@@ -53,12 +44,12 @@ buf_t *buf_advanced(buf_t *buf, size_t count) {
     return r;
 }
 
-size_t buf_slice_len(buf_slice_t *slice) {
+size_t buf_slice_len(struct fbuf_slice *slice) {
     return slice->stop - slice->start;
 }
 
-buf_t *buf_slice(buf_t *buf, buf_slice_t *slice) {
-    buf_t *r = malloc(sizeof(buf_t));
+struct fbuf *buf_slice(struct fbuf *buf, struct fbuf_slice *slice) {
+    struct fbuf *r = malloc(sizeof(struct fbuf));
     if(!r) return NULL;
     r->linebuf = buf->linebuf + slice->start;
     r->len = slice->stop - slice->start;
@@ -66,7 +57,7 @@ buf_t *buf_slice(buf_t *buf, buf_slice_t *slice) {
     return r;
 }
 
-void buf_free(buf_t *buf) {
+void buf_free(struct fbuf *buf) {
     if(buf) {
         if(buf->linebuf && buf->owned) free(buf->linebuf);
         free(buf);

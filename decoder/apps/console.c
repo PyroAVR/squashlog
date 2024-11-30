@@ -18,26 +18,124 @@ void usage(const char *name) {
     printf("Usage: %s <strings file> <indices file> <binfmt file> <data stream file>\n", name);
 }
 
+struct strtab {
+    struct fbuf *strtab;
+    array_t *offset_map;
+};
+
+/**
+ * Create a strtab from a file path, allocating memory where necessary.
+ * Pass NULL for table to allocate all memory. Otherwise, any NULL field will
+ * be filled in as appropriate.
+ *
+ * When this function returns non-NULL, the strtab argument is owned by the
+ * resulting structure and will be freed when reassigned or the structure is
+ * destroyed.
+ */
+struct strtab *strtab_init_from_bin(struct strtab *table, struct fbuf *strtab, const struct fbuf *indices, const bfmt_t *host_bfmt) {
+    if(table == NULL) {
+        table = malloc(sizeof(struct strtab));
+        if(table == NULL) {
+            fprintf(stderr, "Out of memory while allocating strtab\n");
+            goto done;
+        }
+        memset((void*)table, 0, sizeof(struct strtab));
+    }
+
+    // clear old entries
+    if(table->offset_map != NULL) {
+        // XXX HAX: there is no "clear" function in alc_array :(
+        table->offset_map->size = 0;
+    }
+    else {
+        // array of offsets in host pointer size
+        table->offset_map = create_array(1, host_bfmt->pointer_size);
+        if(!table->offset_map) {
+            goto done_free_table;
+        }
+    }
+
+    // populate offsets into strtab from indices
+    if(table->strtab != NULL) {
+        buf_free(table->strtab);
+    }
+    table->strtab = strtab;
+
+    // this loop increments a pointer and subtracts an offset, but using
+    // host pointer size.
+    // this algorithm accounts for the initial zero in the string index table.
+    // While it makes the decoder slightly ugly, it drastically simplifies the
+    // logic on the encoder side, which is dependent on macros.
+    //
+    // The first entry in the index table is bogus data (likely zero), to
+    // account for the _twig_stridx_start - a dummy allocation that will have
+    // an address at the beginning of the index table. The second entry is the
+    // starting address of the strtab, which becomes the variable "base" here.
+    // All future entries are offset by base, so we subtract base from them
+    // to get the real offset into the binary strtab file.
+    // Were the executable loaded as ELF or similar format, the actual address
+    // would be meaningful as a loadaddr of the strtab.
+    uintmax_t base = 0;
+    for(unsigned int i = host_bfmt->pointer_size; i < indices->len; i += host_bfmt->pointer_size) {
+        uintmax_t strtab_pointer;
+        memcpy(&strtab_pointer, indices->linebuf + i, host_bfmt->pointer_size);
+        if(base == 0) {
+            base = strtab_pointer;
+        }
+        strtab_pointer -= base;
+        if(ALC_ARRAY_SUCCESS != array_append(table->offset_map, (void*)strtab_pointer)) {
+            fprintf(stderr, "out of memory during strtab-offset table generation\n");
+            goto done_free_array;
+        }
+    }
+    
+    goto done; // skip de-init
+done_free_array:
+    array_free(table->offset_map);
+done_free_table:
+    free(table);
+    table = NULL;
+done:
+    return table;
+}
+
+/**
+ * Get a pointer to the string at the specified index
+ * NULL is returned if the index is out of bounds.
+ */
+char* strtab_lookup(const struct strtab *table, uintmax_t index) {
+    char *spec = NULL;
+    uintmax_t *offset = (uintmax_t*)array_fetch(table->offset_map, index);
+    if(!offset) {
+        fprintf(stderr, "Index %lu was not found in the string table. Stale input or stream de-sync likely.\n", index);
+    }
+    else {
+        spec = (char*)table->strtab->linebuf + *offset;
+    }
+    return spec;
+}
+
+void strtab_free(struct strtab *table) {
+    if(table) {
+        buf_free(table->strtab);
+        array_free(table->offset_map);
+        free(table);
+    }
+}
+
 struct app_ctx {
     bfmt_t host_bfmt;
-    array_t *offset_map; // map (index -> strtab offset)
-    // XXX not owned by this struct in the current impl.
-    char **strtab;
+    struct strtab *strtab;
     struct unpacker_ctx *unpackctx;
 };
 
-struct app_ctx *app_ctx_init(struct app_ctx *ctx, bfmt_t *host_bfmt, struct unpacker_ctx *unpackerctx, char **strtab) {
+struct app_ctx *app_ctx_init(struct app_ctx *ctx, bfmt_t *host_bfmt, struct unpacker_ctx *unpackerctx, struct fbuf *strtab, const struct fbuf *indices) {
     memcpy(&ctx->host_bfmt, host_bfmt, sizeof(bfmt_t));
     
-    ctx->offset_map = create_array(1, host_bfmt->pointer_size);
-    if(!ctx->offset_map) {
-        return NULL;
-    }
     ctx->unpackctx = unpackerctx;
-    ctx->strtab = strtab;
+    ctx->strtab = strtab_init_from_bin(NULL, strtab, indices, host_bfmt);
     return ctx;
 }
-
 
 void read_handler(struct app_ctx *ctx, int fd) {
     printf("read is ready on fd: %i\n", fd);
@@ -56,16 +154,8 @@ void read_handler(struct app_ctx *ctx, int fd) {
         }
 
         struct tagbox next_arg = {.tag = NO_DATA};
-        uint32_t *offset = (uint32_t*)array_fetch(ctx->offset_map, string_idx);
-        if(!offset) {
-            fprintf(stderr, "Index %i was not found in the string table. Stale input or stream de-sync likely.\n", string_idx);
-        }
-        else {
-            // TODO make a nice macro / func for getting an index into strtab
-            // also make one to do the whole lookup, eg. char *fmt = lookup_idx(ctx, idx)
-            char *spec = (char*)ctx->strtab + *offset;
-            printf("\t%s\n", spec);
-        }
+        char *spec = strtab_lookup(ctx->strtab, string_idx);
+        printf("\t%s\n", spec);
         // while((next_arg = unpackgarg(ctx->unpackctx, NULL, buf
         // consume as many arguments as we have available bytes, printing them
         // if all arguments are consumed, new_fmt = true, else new_fmt = false
@@ -80,15 +170,15 @@ int main(int argc, const char **argv) {
         return 1;
     }
 
-    buf_t *strings = buf_from_file(argv[1]);
+    struct fbuf *strings = buf_from_file(argv[1]);
     if(!strings) {
         goto done_nostrings;
     }
-    buf_t *indices = buf_from_file(argv[2]);
+    struct fbuf *indices = buf_from_file(argv[2]);
     if(!indices) {
         goto done_noindices;
     }
-    buf_t *binfmt = buf_from_file(argv[3]);
+    struct fbuf *binfmt = buf_from_file(argv[3]);
     if(!binfmt) {
         goto done_nobinfmt;
     }
@@ -96,40 +186,18 @@ int main(int argc, const char **argv) {
     bfmt_t *host_bfmt = (bfmt_t*)binfmt->linebuf;
 
 
+    // bfmt is copied, indices is transient, strings is managed by ctx->strtab
+    // after this call
     struct app_ctx ctx;
-    app_ctx_init(&ctx, host_bfmt, NULL, (char**)(strings->linebuf));
+    app_ctx_init(&ctx, host_bfmt, NULL, strings, indices);
+    buf_free(indices);
+    buf_free(binfmt);
+    indices = NULL;
+    binfmt = NULL;
 
     printf("host machine has sizeof(void *) = %i\n", host_bfmt->pointer_size);
 
     printf("host string table:\n");
-    // this algorithm accounts for the initial zero in the string index table.
-    // While it makes the decoder slightly ugly, it drastically simplifies the
-    // logic on the encoder side, which is dependent on macros.
-    //
-    // The first entry in the index table is bogus data (likely zero), to
-    // account for the _twig_stridx_start - a dummy allocation that will have
-    // an address at the beginning of the index table. The second entry is the
-    // starting address of the strtab, which becomes the variable "base" here.
-    // All future entries are offset by base, so we subtract base from them
-    // to get the real offset into the binary strtab file.
-    // Were the executable loaded as ELF or similar format, the actual address
-    // would be meaningful as a loadaddr of the strtab.
-    unsigned int base = 0;
-    for(unsigned int i = host_bfmt->pointer_size; i < indices->len; i += host_bfmt->pointer_size) {
-        unsigned int strtab_pointer;
-        // NOTE u32 works for many platforms, but not guaranteed to be enough for x86.
-        memcpy(&strtab_pointer, indices->linebuf + i, sizeof(BFMT_U32_TYPE));
-        if(base == 0) {
-            base = strtab_pointer;
-        }
-        strtab_pointer -= base;
-        // printf("\toffset of next string: %04x\n", strtab_pointer);
-        // printf("\t%i: %s\n", i - host_bfmt->pointer_size, strings->linebuf + strtab_pointer);
-        if(ALC_ARRAY_SUCCESS != array_append(ctx.offset_map, (void*)strtab_pointer)) {
-            fprintf(stderr, "out of memory during strtab-offset table generation\n");
-            goto done_mem;
-        }
-    }
 
     int streamfd = open(argv[4], O_RDONLY);
     if(streamfd == -1) {
@@ -164,8 +232,6 @@ done_nostream:
     destroy_epoll_app(epoll);
 #endif
 done:
-done_mem:
-    array_free(ctx.offset_map);
 done_nobinfmt:
     buf_free(binfmt);
 done_noindices:
