@@ -138,28 +138,52 @@ struct app_ctx *app_ctx_init(struct app_ctx *ctx, bfmt_t *host_bfmt, struct unpa
 }
 
 void read_handler(struct app_ctx *ctx, int fd) {
-    printf("read is ready on fd: %i\n", fd);
-    ssize_t read_size = 0;
-    char buf[256];
-    bool new_fmt = true;
-    uintmax_t string_idx = 0;
-    size_t skip = 0;
-    while((read_size = read(fd, buf, 256)) > 0) {
-        buf[read_size] = 0; // append null-terminator
-        if(new_fmt) {
-            // new_fmt = false;
-            // get index of this message from first byte & ctx
-            string_idx = unpack_idx(&ctx->host_bfmt, buf, &skip);
-            printf("index of current message is: %lu\n", string_idx);
-        }
+    // TODO what happens when unpackarg encounters a giant string arg?
+    // it should return a pointer, but a pointer to what? There isn't a good
+    // way to know what the size is, and if it is larger, into what shall
+    // we read it? Perhaps there needs to be a dynabuf in the unpacker context.
 
-        struct tagbox next_arg = {.tag = NO_DATA};
-        char *spec = strtab_lookup(ctx->strtab, string_idx);
-        printf("\t%s\n", spec);
-        // while((next_arg = unpackgarg(ctx->unpackctx, NULL, buf
-        // consume as many arguments as we have available bytes, printing them
-        // if all arguments are consumed, new_fmt = true, else new_fmt = false
-        // loop
+    printf("read is ready on fd: %i\n", fd);
+    // vars needed for each format string:
+    // - read buffer
+    // - size of data read
+    // - offset into read buffer consumed
+    // - spec string
+    char buf[256];
+    ssize_t bytes_available = 0;
+    ssize_t bytes_remaining = 0;
+    char *curr_spec = NULL;
+    // vars needed for each read chunk:
+    // - whether to run unpack_idx (start of new fmt string)
+    // - current arg output
+    // - bytes to skip
+    // - bytes remaining in stream
+    bool new_fmt = true;
+    struct tagbox next_arg = {.tag = NO_DATA};
+    size_t skip = 0;
+    size_t bytes_consumed = 0;
+
+    while((bytes_available = read(fd, buf, 256)) > 0) {
+        buf[bytes_available] = 0; // append null-terminator
+        do {
+            if(new_fmt) {
+                new_fmt = false;
+                // get index of this message from first byte & ctx
+                uintmax_t string_idx = unpack_idx(&ctx->host_bfmt, buf, &skip);
+                bytes_remaining = bytes_available - skip;
+                bytes_consumed = skip;
+                curr_spec = strtab_lookup(ctx->strtab, string_idx);
+                next_arg = unpackarg(ctx->unpackctx, curr_spec, buf + skip, bytes_available - bytes_remaining);
+            }
+            else {
+                next_arg = unpackarg(ctx->unpackctx, NULL, buf + bytes_consumed, bytes_available - bytes_remaining);
+                // TODO advance bytes_consumed and bytes_remaining based on skip value from unpackarg
+                // TODO if unpackarg says there are no args left to process, set new_fmt = true
+            }
+            // do something with next_arg
+            // free next_arg when done
+            // TODO make read calls deal with a circular buffer / use unpacker's stream context
+        while(
     }
     printf("\n");
 }

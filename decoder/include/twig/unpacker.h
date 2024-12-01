@@ -11,6 +11,7 @@ struct unpacker_ctx {
     void *stream_ctx;
 };
 
+// TODO make unpackarg yield a skip to say how many bytes were used
 struct tagbox unpackarg(struct unpacker_ctx *ctx, void *spec, char *buf, size_t len);
 
 /**
