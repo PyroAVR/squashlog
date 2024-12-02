@@ -7,7 +7,9 @@
 
 struct posix_stream *posix_stream_from_file(struct posix_stream *target, char *filename) {
     target->file = fopen(filename, "r");
-    // no error handling...
+    if(!target->file) {
+        fprintf(stderr, "Could not open file \"%s\" for reading\n", filename);
+    }
     return target;
 }
 

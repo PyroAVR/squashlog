@@ -2,7 +2,10 @@
 
 #include <twig/tagbox.h>
 
+#include <alibc/containers/dynabuf.h>
+
 #include <stddef.h>
+#include <stdbool.h>
 
 #if 0
 --- thinking
@@ -46,15 +49,25 @@ just do method 1. simpler to write & understand. buffering is not that bad.
 struct unpacker_ctx {
     size_t (*read)(void *impl, char *dest, size_t len);
     int (*next_arg_bytes)(void **ctx, void *spec);
+    dynabuf_t *argbuf; // used to buffer large arguments
     void *format_ctx;
     void *stream_ctx;
+    bfmt_t *host_bfmt;
+    // internal state, do not modify
+    const struct strtab *host_strtab;
+    char *curr_spec; // format spec within strtab
+    bool new_spec; // true when an index lookup must be performed
 };
 
 /**
- * Unpack one argument from a stream. Call with spec as the format string
- * on the first call
+ * Unpack one argument from a stream. Whether the function blocks or yields
+ * an empty tagbox ({.tag = NO_DATA}) is up to the stream implementation.
+ * The resulting tagbox is safe to use in the calling function and pass to other
+ * functions, UNLESS .tag = AS_CSTRING, at which point .str points to the
+ * internal dynabuf structure of the unpacker and will change on the next call
+ * to unpackarg. Use strcpy/strdup to move it immediately.
  */
-struct tagbox unpackarg(struct unpacker_ctx *ctx, void *spec, size_t *skip);
+struct tagbox unpackarg(struct unpacker_ctx *ctx);
 
 /**
  * Unpack the index of a format string and declare how many bytes it consumed
@@ -62,5 +75,6 @@ struct tagbox unpackarg(struct unpacker_ctx *ctx, void *spec, size_t *skip);
  * buf: buffer to unpack from
  * skip: out, how many bytes were consumed by the index
  * return value: the index, in native endianness.
+ * FIXME what if not enough bytes are present? make skip -1?
  */
 uintmax_t unpack_idx(bfmt_t *bfmt, char *buf, size_t *skip);
