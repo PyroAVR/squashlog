@@ -14,8 +14,13 @@ lib_epoll = library('epoll',
 )
 
 lib_unpacker = library('unpacker',
-  files('unpacker.c'),
+  files([
+    'unpacker.c',
+    'strtab.c',
+  ]),
   include_directories: [common_includes, decoder_includes],
+  link_with: lib_buf,
+  dependencies: [dep_alibc_dynabuf, dep_alibc_array],
   install: false,
   native: true
 )
