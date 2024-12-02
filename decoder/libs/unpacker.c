@@ -73,7 +73,7 @@ uintmax_t unpack_idx(bfmt_t *bfmt, char *buf, size_t *skip) {
 
 // return ONE (next) arg value as a tagbox.
 // call again with NULL spec to continue consuming args
-struct tagbox unpackarg(struct unpacker_ctx *ctx, void *spec, char *buf, size_t len) {
+struct tagbox unpackarg(struct unpacker_ctx *ctx, void *spec, size_t *skip) {
     struct tagbox r;
     r.tag = AS_U16;
     r.data.as_u16[0] = 32768;
@@ -83,8 +83,6 @@ struct tagbox unpackarg(struct unpacker_ctx *ctx, void *spec, char *buf, size_t 
     //     if current_bytes + x >= len: break
     //     read x bytes from buf
     //     current_bytes += x
-    //     ... how to get the value out? return box with tag for type?
-    //     no convenient va_list here, could just use alibc_array since it's
-    //     already included.
+    //     return tagbox
     return r;
 }

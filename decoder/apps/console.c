@@ -182,9 +182,8 @@ void read_handler(struct app_ctx *ctx, int fd) {
             }
             // do something with next_arg
             // free next_arg when done
-            // TODO make read calls deal with a circular buffer / use unpacker's stream context
-        while(
-    }
+            // TODO make read calls deal with a circular buffer (check out readv :) )/ use unpacker's stream context
+        } while(1);
     printf("\n");
 }
 
