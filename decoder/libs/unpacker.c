@@ -105,6 +105,15 @@ struct tagbox unpackarg(struct unpacker_ctx *ctx) {
     // TODO how do I get the encoded type? need it for signed vs. unsigned
     // modify printf_flags to also yield signedness flags, but only on decoder
     // builds.
+    // type is in the format string, but we need a way to extract that here,
+    // since the API we've chosen returns a tagbox.
+    // - BUT -, if we change the API so that a callback is given the bytes and
+    // a context variable, we can avoid that extraction entirely and instead
+    // allow the callback (which would do the output formatting) to just
+    // consume the format string and bytes and bfmt together.
+    // rework the API to enable this, it's more complicated, but actually would
+    // allow unpackarg() to be a callback for epoll on read-ready events, for
+    // example, which merges the benefits of methods 1 and 2. c o o l  !
 
     // REMAINING ALGORITHM STEPS:
     // - read bytes
