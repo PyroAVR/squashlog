@@ -28,7 +28,8 @@ enum {
     DOUBLE_CONV_FLAG = 1 << 9,
     CHAR_CONV_FLAG = 1 << 10,
     STR_CONV_FLAG = 1 << 11,
-    PTR_CONV_FLAG = 1 << 12
+    PTR_CONV_FLAG = 1 << 12,
+    UNSIGNED_FLAG = 1 << 13,
 };
 
 /**

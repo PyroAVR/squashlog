@@ -98,6 +98,9 @@ int printf_spec_flags(const char *spec, size_t *skip) {
     switch(spec[index]) {
         case 'd':
         case 'i':
+            flags |= INT_CONV_FLAG | UNSIGNED_FLAG;
+        break;
+
         case 'o':
         case 'u':
         case 'x':
@@ -117,11 +120,11 @@ int printf_spec_flags(const char *spec, size_t *skip) {
         break;
 
         case 'c':
-            flags |= CHAR_CONV_FLAG;
+            flags |= CHAR_CONV_FLAG | UNSIGNED_FLAG;
         break;
 
         case 'C':
-            flags |= CHAR_CONV_FLAG | LONG_MOD_FLAG;
+            flags |= CHAR_CONV_FLAG | LONG_MOD_FLAG | UNSIGNED_FLAG;
         break;
 
         case 's':
@@ -129,7 +132,7 @@ int printf_spec_flags(const char *spec, size_t *skip) {
         break;
 
         case 'S':
-            flags |= STR_CONV_FLAG | LONG_MOD_FLAG;
+            flags |= STR_CONV_FLAG | LONG_MOD_FLAG | UNSIGNED_FLAG;
         break;
 
         case 'p':
